@@ -10,22 +10,21 @@ base_url = "https://maps.googleapis.com/maps/api/geocode/json"
 class GeoEncodingClient():
 
     def __init__(self) -> None:
-        self.key = settings.GOOGLE_MAP_SECRET_KEY
+        self.key = settings.GOOGLE_DIRECTION_SECRET_KEY
     
     
     def clean_address(self,address)->str:
         cleaned_address = re.sub(r"[^a-zA-Z0-9 ]","")
         return cleaned_address
 
-    @staticmethod
     def geoencode(self, address)->tuple:
-        cleaned_address = self.clean_address(address)
-        query_params = urlencode({"address":cleaned_address, "key":self.key})
+        #cleaned_address = self.clean_address(address)
+        query_params = urlencode({"address":address, "key":self.key})
         full_path = f"{base_url}?{query_params}"
         response = requests.post(full_path)
         return json.loads(response.content), response.status_code
 
-    def get_lat_and_lang(self, address)->dict:
+    def get_lat_and_long(self, address)->dict:
         geoencode_data, geoencode_res_code = self.geoencode(address)
         if geoencode_res_code == 200:
             lat_n_long = geoencode_data["results"][0].get("geometry").get("location")
@@ -48,6 +47,7 @@ class GeoEncodingClient():
         else:
             return None
 
-
-
-        
+def geoencodeaddress(address):
+    client = GeoEncodingClient()
+    lat_and_long = client.get_lat_and_long(address)
+    return lat_and_long
