@@ -1,14 +1,12 @@
-from dataclasses import dataclass, field
-from os import stat
-from statistics import mode
 from rest_framework import serializers
 from rest_framework.exceptions import APIException
 from rest_framework import status
 from .models import Event, EventStatus, EventLocationType, EventPaymentType
 from django.db.models import QuerySet
 from rest_framework.fields import empty
+from event.googleapi.direction import get_direction_cleaned_date
 
-@dataclass
+
 class EventReadSerializer(serializers.ModelSerializer):
 
     event_url = serializers.SerializerMethodField() #URLField(source="get_absolute_url", read_only = True)
@@ -16,14 +14,17 @@ class EventReadSerializer(serializers.ModelSerializer):
     
     def __init__(self, instance=None, data=empty, **kwargs):
         super().__init__(instance,data, **kwargs)
+        self.virtual_field = ["event_url_link"]
+        self.on_site_fields = ["event_location_lognitude","event_location_latitude",
+                            "event_address"]
+
         
         if isinstance(instance, QuerySet) or [instance]:
             if not isinstance(instance, QuerySet):
                 instance_list = [instance]
             for instance_obj in  instance if isinstance(instance, QuerySet) else instance_list:
                 if instance_obj.event_location_type == EventLocationType.ONSITE:
-                    self.on_site_fields = ["event_location_lognitude","event_location_latitude",
-                                        "event_address"]
+
                     self.Meta.fields += self.on_site_fields
                         
 
@@ -35,15 +36,8 @@ class EventReadSerializer(serializers.ModelSerializer):
                    
 
                 elif instance_obj.event_location_type == EventLocationType.VIRTUAL:
-                    self.virtual_field = ["event_url_link"]
                     self.Meta.fields += self.virtual_field      
                     self.fields["event_url_link"] = serializers.CharField()
-    
-
-
-    
-
-    
     
     class Meta:
         model=Event
@@ -71,18 +65,27 @@ class EventReadSerializer(serializers.ModelSerializer):
         return request.build_absolute_uri(event.get_absolute_url())
 
     def to_representation(self, instance):
+        request = self.context.get("request")
+        start_location = request.query_params.get("start_location")
+        mode = request.query_params.get("mode")
+
         data = super().to_representation(instance)
         if instance.event_location_type == EventLocationType.ONSITE:
-            data.pop(self.virtual_field[0])
+            if self.virtual_field[0] in data.keys():
+                data.pop(self.virtual_field[0])
+            latitude = instance.event_location_latitude
+            longnitude = instance.event_location_lognitude
+            destination = f"{latitude},{longnitude}"
+
+            if start_location:
+                data["direction_data"] = get_direction_cleaned_date(origin=start_location, destination=destination, mode=mode)
         elif instance.event_location_type == EventLocationType.VIRTUAL:
             for field in self.on_site_fields:
-                data.pop(field)
-        
-        #TODO GetLocation
+                if field in data.keys():
+                    data.pop(field)
+               
         return data
 
-    def to_internal_value(self, data):
-        return super().to_internal_value(data)
         
 
 class EventCreateSerializer(serializers.ModelSerializer):
@@ -115,6 +118,9 @@ class EventCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"error":"You cannot set event status to OPEN without publish end date and publish start_date"}, status=status.HTTP_400_BAD_REQUEST)
     
         return super().validate(attrs)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
 
 
 
