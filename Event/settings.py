@@ -28,7 +28,7 @@ SECRET_KEY = "django-insecure-%5s6yk0k3l1m7nd_m1@zj+!0ans6-*3t+#-4l4*1bah34(qe$m
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -139,3 +139,5 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": ["django_filters.rest_framework.DjangoFilterBackend"]
 }
 GOOGLE_DIRECTION_SECRET_KEY = config("GOOGLE_DIRECTION_SECRET_KEY")
+CLIENT_ID = config("GOOGLE_OUTH_CLIENT_ID")
+CLIENT_SECRET = config("GOOGLE_OUTH_CLIENT_SECRET")

@@ -3,6 +3,7 @@ from urllib.parse import urlencode
 
 import requests
 from django.conf import settings
+from rest_framework.authentication import BasicAuthentication
 
 base_url = "https://maps.googleapis.com/maps/api/directions/json?"
 

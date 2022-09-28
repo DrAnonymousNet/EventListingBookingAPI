@@ -10,7 +10,10 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar",
+]
 
 
 def main():
@@ -28,10 +31,19 @@ def main():
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
-            creds = flow.run_local_server(port=0)
+            flow = InstalledAppFlow.from_client_secrets_file(
+                "./credentials.json", SCOPES
+            )
+            # __import__("ipdb").set_trace()
+            # flow.redirect_uri = "http://localhost:8000"
+            creds = flow.run_local_server(
+                host="localhost", port=8000, redirect_uri_trailing_slash=False
+            )
         # Save the credentials for the next run
+        # __import__("ipdb").set_trace()
+
         with open("token.json", "w") as token:
+
             token.write(creds.to_json())
 
     try:
@@ -68,3 +80,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# http://localhost:8000/?state=Txn1dGzExIx875cyKWVV1FpXg2wpRh&code=4/0ARtbsJo8Jj0QLZt98Y3S-OXscBjzj1tv1T5TlQ1HM3E1aLpN_bIyZ17MfmOmjf-JXUPh5Q&scope=https://www.googleapis.com/auth/calendar.readonly%20https://www.googleapis.com/auth/calendar

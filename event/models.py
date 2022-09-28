@@ -134,6 +134,10 @@ class Event(models.Model):
         self.event_status = EventStatus.CLOSED
         self.save()
 
+    def open_event(self):
+        self.event_status = EventStatus.OPEN
+        self.save()
+
     def get_absolute_url(self):
         return reverse("event-detail", args=[str(self.event_uuid)])
 
@@ -149,3 +153,13 @@ class Event(models.Model):
                 return (self.event_address, "")
         else:
             return self.event_url_link
+
+
+class OuthTokenModel(models.Model):
+    token_provider = models.CharField(max_length=100, blank=True, null=True)
+    access_token = models.CharField(max_length=100, blank=True)
+    refresh_token = models.CharField(max_length=100, blank=True, null=True)
+    token_expire_time = models.DateTimeField()
+    token_for = models.CharField(max_length=100, blank=True, null=True)
+    token_scope = models.CharField(max_length=250, blank=True, null=True)
+    token_type = models.CharField(max_length=100, blank=True, null=True)

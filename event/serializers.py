@@ -1,3 +1,5 @@
+from urllib.parse import urlencode
+
 from django.db.models import QuerySet
 from rest_framework import serializers, status
 from rest_framework.exceptions import APIException
@@ -24,7 +26,7 @@ class EventReadSerializer(serializers.ModelSerializer):
             "event_address",
         ]
 
-        if isinstance(instance, QuerySet) or [instance]:
+        if instance and (isinstance(instance, QuerySet) or [instance]):
             if not isinstance(instance, QuerySet):
                 instance_list = [instance]
             for instance_obj in (
