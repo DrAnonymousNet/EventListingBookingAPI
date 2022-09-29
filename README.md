@@ -17,6 +17,9 @@ GOOGLE_OUTH_CLIENT_ID=
 GOOGLE_OUTH_CLIENT_SECRET=
 ```
 
+Add the following redirect url while creating the application:
+![Screenshot from 2022-09-29 15-20-53](https://user-images.githubusercontent.com/64500446/193057482-948001b0-97a1-4300-b9ed-4be542648a8a.png)
+
 Obtain a Google API Secret Key from the [Google Dashboard](https://console.cloud.google.com/apis/dashboard) and Enable the GeoEncoding and GeoLocation API and optionally the GeoDirection API from the [Google Map Console](https://console.cloud.google.com/google/maps-apis/api-list)
 
 Add the Secret keys in the .env file:
