@@ -47,6 +47,8 @@ def main():
             token.write(creds.to_json())
 
     try:
+        print(creds)
+        __import__("ipdb").set_trace()
         service = build("calendar", "v3", credentials=creds)
 
         # Call the Calendar API

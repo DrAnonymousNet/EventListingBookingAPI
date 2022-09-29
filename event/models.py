@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Tuple
 from uuid import uuid4
 
@@ -49,8 +50,10 @@ class Event(models.Model):
     event_image = models.ImageField()
     event_published_date = models.DateTimeField(blank=True, null=True)
     event_publish_end_date = models.DateTimeField(blank=True, null=True)
-    event_date = models.DateField(blank=True, null=True)
-    event_time = models.TimeField(blank=True, null=True)
+    event_start_date = models.DateField(blank=True, null=True)
+    event_start_time = models.TimeField(blank=True, null=True)
+    event_end_date = models.DateField(blank=True, null=True)
+    event_end_time = models.TimeField(null=True, blank=True)
     event_payment_type = models.CharField(
         choices=EventPaymentType.choices, default=EventPaymentType.FREE, max_length=20
     )
@@ -156,10 +159,22 @@ class Event(models.Model):
 
 
 class OuthTokenModel(models.Model):
-    token_provider = models.CharField(max_length=100, blank=True, null=True)
-    access_token = models.CharField(max_length=100, blank=True)
-    refresh_token = models.CharField(max_length=100, blank=True, null=True)
+    token_provider = models.CharField(max_length=250, blank=True, null=True)
+    access_token = models.CharField(max_length=250, blank=True)
+    refresh_token = models.CharField(max_length=200, blank=True, null=True)
     token_expire_time = models.DateTimeField()
-    token_for = models.CharField(max_length=100, blank=True, null=True)
-    token_scope = models.CharField(max_length=250, blank=True, null=True)
-    token_type = models.CharField(max_length=100, blank=True, null=True)
+    expires_in = models.IntegerField()
+    token_owner = models.CharField(max_length=250, blank=True, null=True)
+    scope = models.CharField(max_length=250, blank=True, null=True)
+    token_type = models.CharField(max_length=250, blank=True, null=True)
+
+    def is_expired(self):
+        return self.token_expire_time < datetime.now()
+
+    def save(self, *args, **kwargs):
+        if self._state.adding:
+            self.token_expire_time = datetime.now() + timedelta(self.expires_in)
+        return super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"Token {self.access_token}"

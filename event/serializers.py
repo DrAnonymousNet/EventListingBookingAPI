@@ -55,8 +55,10 @@ class EventReadSerializer(serializers.ModelSerializer):
             "event_image",
             "event_published_date",
             "event_publish_end_date",
-            "event_date",
-            "event_time",
+            "event_start_date",
+            "event_end_date",
+            "event_start_time",
+            "event_end_time",
             "event_payment_type",
             "event_attendees",
             "event_max_participant_num",
@@ -133,6 +135,17 @@ class EventCreateSerializer(serializers.ModelSerializer):
                 {
                     "error": "You cannot set event status to OPEN without publish end date and publish start_date"
                 },
+                code=status.HTTP_400_BAD_REQUEST,
+            )
+        event_start_date = attrs.get("event_start_date")
+        event_end_date = attrs.get("event_end_date")
+
+        if (
+            all((event_start_date, event_end_date))
+            and event_start_date > event_end_date
+        ):
+            raise serializers.ValidationError(
+                {"error": "Event end date cannot be less than event end date"},
                 code=status.HTTP_400_BAD_REQUEST,
             )
 

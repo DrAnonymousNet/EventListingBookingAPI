@@ -23,7 +23,7 @@ from event.views import Home_View
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("event.urls")),
-    path("", Home_View.as_view()),
+    path("", Home_View.as_view(), name="home"),
 ]
 
 if settings.DEBUG:

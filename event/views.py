@@ -1,21 +1,28 @@
+import base64
 import json
-from http import client
-from urllib import request, response
-from urllib.parse import urlencode
+from urllib.parse import unquote, urlencode
 
 import requests
 from django.conf import settings
 from django.http import Http404
 from django.shortcuts import redirect
+from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from rest_framework import permissions, status
 from rest_framework.decorators import action, api_view
 from rest_framework.response import Response
+from rest_framework.reverse import reverse
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet, ViewSet
 
 from event.googleapi.calendar import event_create_schema
-from event.models import Event, EventLocationType, EventPaymentType, EventStatus
+from event.models import (
+    Event,
+    EventLocationType,
+    EventPaymentType,
+    EventStatus,
+    OuthTokenModel,
+)
 from event.permissions import IsOwnerorReadonly
 from event.serializers import (
     EventBookingSerializer,
@@ -23,6 +30,7 @@ from event.serializers import (
     EventReadSerializer,
     OnSiteEventDirectionSerializer,
 )
+from Event.settings import CLIENT_ID, CLIENT_SECRET
 
 
 class EventAPIViewSet(ModelViewSet):
@@ -63,8 +71,17 @@ class EventAPIViewSet(ModelViewSet):
             serializer = self.get_serializer(instance=event_obj, data=self.request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
+            add_to_calendar = self.request.build_absolute_uri(
+                reverse(
+                    "event-add-to-calendar",
+                    kwargs={"event_uuid": str(event_obj.event_uuid)},
+                )
+            )
+            email = self.request.data.get("attendee_email")
             return Response(
-                data={"message": "You have Booked for a sit successfully"},
+                data={
+                    "message": f"You have Booked for a sit successfully, if you want to add to Calender, click on the link below: {add_to_calendar}?{urlencode({'email':email})}"
+                },
                 status=status.HTTP_200_OK,
             )
 
@@ -139,6 +156,45 @@ class EventAPIViewSet(ModelViewSet):
                 }
             )
 
+    @action(detail=True, methods=["get", "post"])
+    def add_to_calendar(self, request, **kwargs):
+        if self.request.method == "GET":
+            email = unquote(self.request.query_params.get("email"))
+            event_uuid = self.kwargs.get("event_uuid")
+            event = Event.objects.get(event_uuid=event_uuid)
+
+            if email not in event.event_attendees:
+                return Response(
+                    {"error": "You have not reserved a sit in this event"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            grant_end_point = f"{self.request.build_absolute_uri(reverse('oauth-grant'))}?{urlencode({'email':email, 'event_uuid':event_uuid})}"
+            return redirect(grant_end_point)
+
+        token = OuthTokenModel.objects.last()
+        creds = Credentials(
+            token=token.access_token,
+            refresh_token=token.refresh_token,
+            client_id=settings.CLIENT_ID,
+            client_secret=settings.CLIENT_SECRET,
+            token_uri=settings.TOKEN_ENDPOINT,
+            scopes=token.scopes.split(" "),
+            expiry=token.expires_in,
+        )
+        service = build("calendar", "v3", credentials=creds)
+        event = event_create_schema(event_uuid)
+        event = service.events().insert(calendarId="primary", body=event).execute()
+        print("Event created: %s" % event)
+
+        return Response(
+            data={
+                "message": "Event Added to Calendar",
+                "event_data": json.dumps(event),
+            },
+            status=200,
+        )
+
     def get_object(self):
         event_uuid = self.kwargs.get("event_uuid")
         try:
@@ -198,10 +254,13 @@ class OuthCallBackView(ViewSet):
 
     @action(methods=["get"], detail=False)
     def grant(self, request, **kwargs):
+        print(request.data, request.query_params)
+        # __import__("ipdb").set_trace()
         return redirect(self.construct_grant_url())
 
     @action(methods=["get"], detail=False)
     def code(self, request, **kwargs):
+        print(request.query_params, request.data)
         token_endpoint_params = self.construct_token_params()
         full_url = f"{self.TOKEN_URL}"
 
@@ -211,8 +270,35 @@ class OuthCallBackView(ViewSet):
         }
         # __import__("ipdb").set_trace()
         response = requests.post(full_url, data=token_endpoint_params, headers=headers)
+
         self.request.data.update({"token": response.json()})
-        return redirect()
+        token_data = dict(response.json())
+        print(token_data)
+        email, event_uuid = self.get_state_params()
+        # __import__("ipdb").set_trace()
+
+        # email = unquote(email)
+        token = OuthTokenModel.objects.create(
+            token_provider="Google", token_owner=email, **token_data
+        )
+        creds = Credentials(
+            token=token.access_token,
+            refresh_token=token.refresh_token,
+            client_id=settings.CLIENT_ID,
+            client_secret=settings.CLIENT_SECRET,
+            token_uri=settings.TOKEN_ENDPOINT,
+            scopes=token.scope.split(" "),
+        )
+        service = build("calendar", "v3", credentials=creds)
+        event = event_create_schema(event_uuid)
+        # __import__("ipdb").set_trace()
+        event = service.events().insert(calendarId=email, body=event).execute()
+        print("Event created: %s" % event)
+
+        return Response(
+            data={"message": "Event Added to Calendar", "event_data": event}, status=200
+        )
+        # return Response(data=response.json() ,status=200)
 
     @action(methods=["get"], detail=False)
     def token(self, request, **kwargs):
@@ -230,11 +316,18 @@ class OuthCallBackView(ViewSet):
             )
 
     def construct_grant_url(self, **kwargs):
+        email = self.request.query_params.get("email")
+        event_uuid = self.request.query_params.get("event_uuid")
+        state = base64.b64encode(f"{email},{event_uuid}".encode("utf-8")).decode(
+            "utf-8"
+        )
+
         params = {
             "scope": self.get_scope(),
             "client_id": self.client_id,
             "response_type": self.response_type,
             "access_type": self.access_type,
+            "state": state,
         }
 
         if self.code_redirect_uri:
@@ -262,14 +355,14 @@ class OuthCallBackView(ViewSet):
 
         return encoded_params
 
+    def get_state_params(self, **kwargs):
+        state = self.request.query_params.get("state")
+        values = base64.urlsafe_b64decode(state).decode("utf-8").split(",")
+        return tuple(values)
+
 
 class Home_View(APIView):
     def get(self, request, **kwargs):
-        event_uuid = self.kwargs.get("event_uuid")
+        endpoint = self.request.build_absolute_uri(reverse("api-root"))
 
-        service = build("calendar", "v3", credentials=creds)
-        event = event_create_schema(event_uuid)
-        event = service.events().insert(calendarId="primary", body=event).execute()
-        print("Event created: %s" % (event.get("htmlLink")))
-
-        return Response({"data": request.data, "query_params": request.query_params})
+        return Response(data={"root-api": endpoint}, status=200)
