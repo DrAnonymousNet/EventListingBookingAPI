@@ -10,3 +10,7 @@ Register an application in the [Google Console](https://console.cloud.google.com
 
 
 Add the Client Credentials in the .env file
+
+Enable the GeoEncoding and GeoLocation API and optionally the GeoDirection API from the [Google Map Console](https://console.cloud.google.com/google/maps-apis/api-list)
+
+Add the API keys in the .env file
