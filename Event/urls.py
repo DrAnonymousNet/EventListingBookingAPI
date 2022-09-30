@@ -18,12 +18,14 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 
-from event.views import Home_View
+# from event.views import Home_View
 
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/v1/", include("event.urls")),
-    path("", Home_View.as_view(), name="home"),
+    # path("", Home_View.as_view(), name="home"),
+    path("accounts/", include("allauth.urls")),
+    path("oauth/", include("provider.urls")),
 ]
 
 if settings.DEBUG:

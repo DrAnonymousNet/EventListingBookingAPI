@@ -3,6 +3,8 @@ import json
 from urllib.parse import unquote, urlencode
 
 import requests
+from allauth.socialaccount.providers.oauth2.client import OAuth2Error
+from allauth.socialaccount.providers.oauth2.views import OAuth2View
 from django.conf import settings
 from django.http import Http404
 from django.shortcuts import redirect
@@ -169,7 +171,7 @@ class EventAPIViewSet(ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            grant_end_point = f"{self.request.build_absolute_uri(reverse('oauth-grant'))}?{urlencode({'email':email, 'event_uuid':event_uuid})}"
+            grant_end_point = f"{self.request.build_absolute_uri(reverse('google_grant'))}?{urlencode({'action':'event_insert','email':email, 'event_uuid':event_uuid})}"
             return redirect(grant_end_point)
 
         token = OuthTokenModel.objects.last()
@@ -235,134 +237,203 @@ class EventAPIViewSet(ModelViewSet):
         return super().get_permissions()
 
 
-class OuthCallBackView(ViewSet):
-    SCOPES = [
-        "https://www.googleapis.com/auth/calendar.readonly",
-        "https://www.googleapis.com/auth/calendar.events",
-        "https://www.googleapis.com/auth/calendar",
-    ]
-    CODE_URL = "https://accounts.google.com/o/oauth2/auth"
-    TOKEN_URL = "https://oauth2.googleapis.com/token"
-    client_id = settings.CLIENT_ID
-    client_secret = settings.CLIENT_SECRET
-    access_type = "offline"
-    response_type = "code"
-    code_redirect_uri = "http://localhost:8000/api/v1/code"
-    token_redirect_uri = "http://localhost:8000/api/v1/token"
-    logic_redirect_uri = "http://localhost:8000"
-    grant_type = "authorization_code"
+# from __future__ import absolute_import
 
-    @action(methods=["get"], detail=False)
-    def grant(self, request, **kwargs):
-        print(request.data, request.query_params)
-        # __import__("ipdb").set_trace()
-        return redirect(self.construct_grant_url())
+# from datetime import timedelta
+# from requests import RequestException
 
-    @action(methods=["get"], detail=False)
-    def code(self, request, **kwargs):
-        print(request.query_params, request.data)
-        token_endpoint_params = self.construct_token_params()
-        full_url = f"{self.TOKEN_URL}"
+# from django.core.exceptions import PermissionDenied
+# from django.http import HttpResponseRedirect
+# from django.urls import reverse
+# from django.utils import timezone
 
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",  # "application/x-www-form-urlencoded;charset=UTF-8",
-        }
-        # __import__("ipdb").set_trace()
-        response = requests.post(full_url, data=token_endpoint_params, headers=headers)
+# from allauth.exceptions import ImmediateHttpResponse
+# from allauth.socialaccount import providers
+# from allauth.socialaccount.helpers import (
+#     complete_social_login,
+#     render_authentication_error,
+# )
+# from allauth.socialaccount.providers.base import ProviderException
+# from allauth.socialaccount.providers.base.constants import (
+#     AuthError,
+# )
+# from allauth.socialaccount.providers.oauth2.client import (
+#     OAuth2Error,
+# )
+# from .models import Event
+# from django.http import HttpResponseRedirect
+# from django.urls import reverse
+# from rest_framework.response import Response
+# from allauth.account.adapter import get_adapter as get_account_adapter
 
-        self.request.data.update({"token": response.json()})
-        token_data = dict(response.json())
-        print(token_data)
-        email, event_uuid = self.get_state_params()
-        # __import__("ipdb").set_trace()
+# from allauth.exceptions import ImmediateHttpResponse
 
-        # email = unquote(email)
-        token = OuthTokenModel.objects.create(
-            token_provider="Google", token_owner=email, **token_data
-        )
-        creds = Credentials(
-            token=token.access_token,
-            refresh_token=token.refresh_token,
-            client_id=settings.CLIENT_ID,
-            client_secret=settings.CLIENT_SECRET,
-            token_uri=settings.TOKEN_ENDPOINT,
-            scopes=token.scope.split(" "),
-        )
-        service = build("calendar", "v3", credentials=creds)
-        event = event_create_schema(event_uuid)
-        # __import__("ipdb").set_trace()
-        event = service.events().insert(calendarId=email, body=event).execute()
-        print("Event created: %s" % event)
+# from allauth.socialaccount.providers.base import AuthError
+# from event.utils import render_authentication_error
 
-        return Response(
-            data={"message": "Event Added to Calendar", "event_data": event}, status=200
-        )
-        # return Response(data=response.json() ,status=200)
+# class OuthCallBackView(ViewSet, OAuth2View):
+#     #SCOPES = [
+#     #    "https://www.googleapis.com/auth/calendar.readonly",
+#     #    "https://www.googleapis.com/auth/calendar.events",
+#     #    "https://www.googleapis.com/auth/calendar",
+#     #]
+#     #CODE_URL = "https://accounts.google.com/o/oauth2/auth"
+#     #TOKEN_URL = "https://oauth2.googleapis.com/token"
+#     #client_id = settings.CLIENT_ID
+#     #client_secret = settings.CLIENT_SECRET
+#     #access_type = "offline"
+#     #response_type = "code"
+#     #code_redirect_uri = "http://localhost:8000/api/v1/code"
+#     #token_redirect_uri = "http://localhost:8000/api/v1/token"
+#     #logic_redirect_uri = "http://localhost:8000"
+#     #grant_type = "authorization_code"
 
-    @action(methods=["get"], detail=False)
-    def token(self, request, **kwargs):
-        return redirect(self.logic_redirect_uri)
+#     def dispatch(self, request, *args, **kwargs):
+#         if "error" in request.GET or "code" not in request.GET:
+#             # Distinguish cancel from error
+#             auth_error = request.GET.get("error", None)
+#             if auth_error == self.adapter.login_cancelled_error:
+#                 error = AuthError.CANCELLED
+#             else:
+#                 error = AuthError.UNKNOWN
+#             return render_authentication_error(
+#                 request, self.adapter.provider_id, error=error
+#             )
+#         app = self.adapter.get_provider().get_app(self.request)
+#         client = self.get_client(self.request, app)
 
-    def get_scope(self):
-        """Convert a list of scopes to a space separated string."""
-        if isinstance(self.SCOPES, str) or self.SCOPES is None:
-            return self.SCOPES
-        elif isinstance(self.SCOPES, (set, tuple, list)):
-            return " ".join([str(s) for s in self.SCOPES])
-        else:
-            raise ValueError(
-                "Invalid scope (%s), must be string, tuple, set, or list." % self.scope
-            )
+#         try:
+#             access_token = self.adapter.get_access_token_data(request, app, client)
+#             token = self.adapter.parse_token(access_token)
+#             token.app = app
+#             action = getattr(self.adapter, action)()
 
-    def construct_grant_url(self, **kwargs):
-        email = self.request.query_params.get("email")
-        event_uuid = self.request.query_params.get("event_uuid")
-        state = base64.b64encode(f"{email},{event_uuid}".encode("utf-8")).decode(
-            "utf-8"
-        )
+#             #return handler(request)
 
-        params = {
-            "scope": self.get_scope(),
-            "client_id": self.client_id,
-            "response_type": self.response_type,
-            "access_type": self.access_type,
-            "state": state,
-        }
-
-        if self.code_redirect_uri:
-            params["redirect_uri"] = self.code_redirect_uri
-        encoded_url = urlencode(params)
-        full_url = f"{self.CODE_URL}?{encoded_url}"
-        return full_url
-
-        # https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=<client_id>&redirect_uri=<redirect_uri>&scope=<scope_of_the_resource>&access_type=offline
-        # pass
-
-    def construct_token_params(self):
-        params = {
-            "code": self.request.query_params.get("code"),
-            "scope": self.request.query_params.get("scope"),
-            "client_id": self.client_id,
-            "client_secret": self.client_secret,
-            "grant_type": self.grant_type,
-        }
-        if self.token_redirect_uri:
-            params["redirect_uri"] = self.code_redirect_uri
-
-        encoded_params = json.dumps(params)  # urlencode(params)
-        # full_url = f"{self.CODE_URL}?{encoded_url}"
-
-        return encoded_params
-
-    def get_state_params(self, **kwargs):
-        state = self.request.query_params.get("state")
-        values = base64.urlsafe_b64decode(state).decode("utf-8").split(",")
-        return tuple(values)
+#         except (
+#             PermissionDenied,
+#             OAuth2Error,
+#             requests.RequestException,
+#             ProviderException,
+#         ) as e:
+#             return render_authentication_error(
+#                 request, self.adapter.provider_id, exception=e
+#             )
 
 
-class Home_View(APIView):
-    def get(self, request, **kwargs):
-        endpoint = self.request.build_absolute_uri(reverse("api-root"))
+#     @action(methods=["get"], detail=False)
+#     def grant(self, request, **kwargs):
+#         print(request.data, request.query_params)
+#         # __import__("ipdb").set_trace()
+#         return redirect(self.construct_grant_url())
 
-        return Response(data={"root-api": endpoint}, status=200)
+#     @action(methods=["get"], detail=False)
+#     def code(self, request, **kwargs):
+#         print(request.query_params, request.data)
+#         token_endpoint_params = self.construct_token_params()
+#         full_url = f"{self.TOKEN_URL}"
+
+#         headers = {
+#             "Accept": "application/json",
+#             "Content-Type": "application/json",  # "application/x-www-form-urlencoded;charset=UTF-8",
+#         }
+#         # __import__("ipdb").set_trace()
+#         response = requests.post(full_url, data=token_endpoint_params, headers=headers)
+
+#         self.request.data.update({"token": response.json()})
+#         token_data = dict(response.json())
+#         print(token_data)
+#         email, event_uuid = self.get_state_params()
+#         # __import__("ipdb").set_trace()
+
+#         # email = unquote(email)
+#         token = OuthTokenModel.objects.create(
+#             token_provider="Google", token_owner=email, **token_data
+#         )
+#         creds = Credentials(
+#             token=token.access_token,
+#             refresh_token=token.refresh_token,
+#             client_id=settings.CLIENT_ID,
+#             client_secret=settings.CLIENT_SECRET,
+#             token_uri=settings.TOKEN_ENDPOINT,
+#             scopes=token.scope.split(" "),
+#         )
+#         service = build("calendar", "v3", credentials=creds)
+#         event = event_create_schema(event_uuid)
+#         # __import__("ipdb").set_trace()
+#         event = service.events().insert(calendarId=email, body=event).execute()
+#         print("Event created: %s" % event)
+
+#         return Response(
+#             data={"message": "Event Added to Calendar", "event_data": event}, status=200
+#         )
+#         # return Response(data=response.json() ,status=200)
+
+#     @action(methods=["get"], detail=False)
+#     def token(self, request, **kwargs):
+#         return redirect(self.logic_redirect_uri)
+
+#     def get_scope(self):
+#         """Convert a list of scopes to a space separated string."""
+#         if isinstance(self.SCOPES, str) or self.SCOPES is None:
+#             return self.SCOPES
+#         elif isinstance(self.SCOPES, (set, tuple, list)):
+#             return " ".join([str(s) for s in self.SCOPES])
+#         else:
+#             raise ValueError(
+#                 "Invalid scope (%s), must be string, tuple, set, or list." % self.scope
+#      http://127.0.0.1:8000/accounts/google/login/?process=login       )
+
+#     def construct_grant_url(self, **kwargs):
+#         email = self.request.query_params.get("email")
+#         event_uuid = self.request.query_params.get("event_uuid")
+#         state = base64.b64encode(f"{email},{event_uuid}".encode("utf-8")).decode(
+#             "utf-8"
+#         )
+
+#         params = {
+#             "scope": self.get_scope(),
+#             "client_id": self.client_id,
+#             "response_type": self.response_type,
+#             "access_type": self.access_type,
+#             "state": state,
+#         }
+
+#         if self.code_redirect_uri:
+#             params["redirect_uri"] = self.code_redirect_uri
+#         encoded_url = urlencode(params)
+#         full_url = f"{self.CODE_URL}?{encoded_url}"
+#         return full_url
+
+#         # https://accounts.google.com/o/oauth2/auth?response_type=code&client_id=<client_id>&redirect_uri=<redirect_uri>&scope=<scope_of_the_resource>&access_type=offline
+#         # pass
+
+#     def construct_token_params(self):
+#         params = {
+#             "code": self.request.query_params.get("code"),
+#             "scope": self.request.query_params.get("scope"),
+#             "client_id": self.client_id,
+#             "client_secret": self.client_secret,
+#             "grant_type": self.grant_type,
+#         }
+#         if self.token_redirect_uri:
+#             params["redirect_uri"] = self.code_redirect_uri
+
+#         encoded_params = json.dumps(params)  # urlencode(params)
+#         # full_url = f"{self.CODE_URL}?{encoded_url}"
+
+#         return encoded_params
+
+#     def get_state_params(self, **kwargs):
+#         state = self.request.query_params.get("state")
+#         values = base64.urlsafe_b64decode(state).decode("utf-8").split(",")
+#         return tuple(values)
+
+
+# class Home_View(APIView):
+#     def get(self, request, **kwargs):
+#         endpoint = self.request.build_absolute_uri(reverse("api-root"))
+
+#         return Response(data={"root-api": endpoint}, status=200)
+
+# import allauth
