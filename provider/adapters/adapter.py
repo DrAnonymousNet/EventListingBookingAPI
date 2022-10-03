@@ -20,7 +20,7 @@ class OAuth2APIView(OAuthGrantMixin, OAuth2View):
     pass
 
 
-class OAuth2Adapter(OAuth2Adapter):
+class OAuth2APIAdapter(OAuth2Adapter):
     def complete_action(self, request, app, access_token, **kwargs):
         state = self.get_decoded_state(request)
         action = state.get("action")
@@ -124,6 +124,7 @@ class OAuth2GrantView(OAuth2APIView):
         # __import__("ipdb").set_trace()
         provider = self.adapter.get_provider()
         app = provider.get_app(self.request)
+        __import__("ipdb").set_trace()
         client = self.get_client(request, app)
         action = request.query_params.get("action", AuthAction.AUTHENTICATE)
         auth_url = self.adapter.authorize_url

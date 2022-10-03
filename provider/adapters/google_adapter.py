@@ -9,10 +9,10 @@ from rest_framework.response import Response
 
 from event.googleapi.calendar import event_create_schema
 
-from .adapter import OAuth2Adapter, OAuth2CallbackView, OAuth2GrantView
+from .adapter import OAuth2APIAdapter, OAuth2CallbackView, OAuth2GrantView
 
 
-class GoogleOAuth2Adapter(OAuth2Adapter):
+class GoogleOAuth2Adapter(OAuth2APIAdapter):
     provider_id = GoogleProvider.id
     access_token_url = "https://accounts.google.com/o/oauth2/token"
     authorize_url = "https://accounts.google.com/o/oauth2/auth"

@@ -8,7 +8,6 @@ from django.shortcuts import render
 from django.urls import reverse
 from rest_framework.response import Response
 
-from . import app_settings, signals
 from .models import Event
 
 

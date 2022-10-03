@@ -72,7 +72,18 @@ SOCIALACCOUNT_PROVIDERS = {
         "AUTH_PARAMS": {
             "access_type": "offline",
         },
-    }
+    },
+    "linkedin_oauth2": {
+        "APP": {
+            "client_id": config("LINKEDIN_OUTH_CLIENT_ID"),
+            "secret": config("LINKEDIN_OUTH_CLIENT_SECRET"),
+            "key": "",
+        },
+        "SCOPE": [
+            #'r_basicprofile',
+            "r_liteprofile"
+        ],
+    },
 }
 
 # Specify the context processors as follows:

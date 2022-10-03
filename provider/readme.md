@@ -65,23 +65,13 @@ class GoogleOAuth2Adapter(OAuth2Adapter):
 ```
 - The adapter class should implment a `complete_{action name}` name method as said above
 
+- Implement a `get_callback_uri` method in the adapter class that returns the url pattern you want to use for callback
+
+
 ### URL Configuration
 
 - The Grant view and the Callback view should be initiated with the provider Adapter as shown below:
 ```
 google_oauth2_grant_view = OAuth2GrantView.adapter_view(GoogleOAuth2Adapter)
 google_oauth2_callback_view = OAuth2CallbackView.adapter_view(GoogleOAuth2Adapter)
-```
-
-- The url patterns should:
-
-```
-path("grant/{provider_name}/", grant_view, name="{provider_name}_grant"),
-path("grant/provider_name/callback/", callback_view, name="{provider_name}_callback")
-```
-
-For Google:
-```
-path("grant/google/", google_oauth2_grant_view, name="google_grant"),
-path("grant/google/callback/", google_oauth2_callback_view, name="google_callback")
 ```
