@@ -124,7 +124,7 @@ class OAuth2GrantView(OAuth2APIView):
         # __import__("ipdb").set_trace()
         provider = self.adapter.get_provider()
         app = provider.get_app(self.request)
-        __import__("ipdb").set_trace()
+        # __import__("ipdb").set_trace()
         client = self.get_client(request, app)
         action = request.query_params.get("action", AuthAction.AUTHENTICATE)
         auth_url = self.adapter.authorize_url
